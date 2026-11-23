@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+cropcare.db
+static/uploads/*
+static/reports/*
+dataset/
+.env
+CropCare_dataset.zip

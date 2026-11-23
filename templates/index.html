@@ -1,0 +1,560 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>CropCare - Plant Disease Detection</title>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f3f7f2;
+            color: #26352a;
+        }
+
+        header {
+            background: #236b3b;
+            color: white;
+            padding: 25px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 32px;
+            margin-bottom: 8px;
+        }
+
+        header p {
+            font-size: 15px;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 1100px;
+            margin: 30px auto;
+        }
+
+        h2 {
+            margin-bottom: 15px;
+            color: #236b3b;
+        }
+
+        .welcome {
+            margin-bottom: 25px;
+            line-height: 1.6;
+        }
+
+        /* Dashboard */
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+            gap: 18px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.07);
+            transition: transform 0.2s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+        }
+
+        .stat-card h3 {
+            color: #236b3b;
+            font-size: 30px;
+            margin-bottom: 8px;
+        }
+
+        .stat-card p {
+            color: #555;
+            font-size: 14px;
+        }
+
+        /* Sections */
+
+        .section {
+            background: white;
+            padding: 25px;
+            margin-bottom: 25px;
+            border-radius: 12px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.06);
+        }
+
+        input[type="file"] {
+            display: block;
+            margin: 18px 0;
+            width: 100%;
+        }
+
+        button {
+            background: #236b3b;
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 7px;
+            cursor: pointer;
+            font-size: 15px;
+        }
+
+        button:hover {
+            background: #174d29;
+        }
+
+        /* Prediction Result */
+
+        .result {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f3f8f1;
+            border-radius: 10px;
+        }
+
+        .result img {
+            display: block;
+            max-width: 300px;
+            width: 100%;
+            margin: 15px 0;
+            border-radius: 10px;
+        }
+
+        .result h2 {
+            margin: 15px 0;
+        }
+
+        .result h3 {
+            margin: 12px 0 5px;
+        }
+
+        .result p {
+            line-height: 1.6;
+            margin-bottom: 8px;
+        }
+
+        /* Confidence Indicator */
+
+        .confidence-section {
+            margin-top: 20px;
+        }
+
+        .confidence-bar {
+            width: 100%;
+            max-width: 400px;
+            height: 16px;
+            background-color: #e0e0e0;
+            border-radius: 20px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            border-radius: 20px;
+            display: block;
+            transition: width 0.5s ease;
+        }
+
+        .confidence-fill.high {
+            background-color: #28a745 !important;
+        }
+
+        .confidence-fill.medium {
+            background-color: #f39c12 !important;
+        }
+
+        .confidence-fill.low {
+            background-color: #dc3545 !important;
+        }
+
+        .confidence-section small {
+            color: #555;
+            font-size: 13px;
+        }
+
+        /* PDF Download Button */
+
+        .pdf-button {
+            display: inline-block;
+            background: #236b3b;
+            color: white;
+            padding: 12px 22px;
+            text-decoration: none;
+            border-radius: 7px;
+            font-weight: bold;
+            margin-top: 20px;
+            transition: background 0.2s;
+        }
+
+        .pdf-button:hover {
+            background: #174d29;
+        }
+
+        /* Error */
+
+        .error {
+            background: #ffe8e8;
+            color: #a00000;
+            padding: 12px;
+            border-radius: 7px;
+            margin-top: 15px;
+        }
+
+        /* Detection History */
+
+        .history-item {
+            border-bottom: 1px solid #ddd;
+            padding: 18px 0;
+            line-height: 1.8;
+        }
+
+        .history-item:last-child {
+            border-bottom: none;
+        }
+
+        .history-item img {
+            width: 90px;
+            height: 90px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin-top: 10px;
+            display: block;
+        }
+
+        .history-confidence {
+            width: 100%;
+            max-width: 250px;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 20px;
+            overflow: hidden;
+            margin: 5px 0;
+        }
+
+        .history-confidence-fill {
+            height: 100%;
+            border-radius: 20px;
+            display: block;
+        }
+
+        .empty {
+            color: #777;
+            padding: 10px 0;
+        }
+
+        /* Footer */
+
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+
+        /* Mobile Responsive */
+
+        @media (max-width: 600px) {
+            .container {
+                width: 94%;
+            }
+
+            header h1 {
+                font-size: 26px;
+            }
+
+            .section {
+                padding: 18px;
+            }
+        }
+
+    </style>
+</head>
+
+<body>
+
+    <!-- Header -->
+
+    <header>
+        <h1>🌱 CropCare</h1>
+        <p>AI-Powered Plant Disease Detection and Advisory System</p>
+    </header>
+
+
+    <div class="container">
+
+        <!-- Welcome Section -->
+
+        <div class="welcome">
+
+            <h2>Welcome to CropCare</h2>
+
+            <p>
+                Upload a picture of a plant leaf to identify possible diseases
+                and receive useful information and prevention suggestions.
+            </p>
+
+        </div>
+
+
+        <!-- Dashboard Statistics -->
+
+        <div class="dashboard">
+
+            <div class="stat-card">
+                <h3>{{ stats.total_uploads }}</h3>
+                <p>Total Uploads</p>
+            </div>
+
+            <div class="stat-card">
+                <h3>{{ stats.diseases_detected }}</h3>
+                <p>Diseases Detected</p>
+            </div>
+
+            <div class="stat-card">
+                <h3>{{ stats.pending_predictions }}</h3>
+                <p>Pending Predictions</p>
+            </div>
+
+            <div class="stat-card">
+                <h3>{{ stats.uncertain_predictions }}</h3>
+                <p>Uncertain Predictions</p>
+            </div>
+
+        </div>
+
+
+        <!-- Image Upload Section -->
+
+        <div class="section">
+
+            <h2>Upload Plant Leaf Image</h2>
+
+            <form method="POST" enctype="multipart/form-data">
+
+                <input
+                    type="file"
+                    name="leaf_image"
+                    accept=".jpg,.jpeg,.png"
+                    required
+                >
+
+                <button type="submit">
+                    Analyze Leaf
+                </button>
+
+            </form>
+
+
+            {% if error %}
+
+                <div class="error">
+                    {{ error }}
+                </div>
+
+            {% endif %}
+
+
+            <!-- Prediction Result -->
+
+            {% if uploaded_image %}
+
+                <div class="result">
+
+                    <h3>Image Uploaded Successfully!</h3>
+
+                    <img
+                        src="{{ uploaded_image }}"
+                        alt="Uploaded plant leaf"
+                    >
+
+
+                    {% if disease %}
+
+                        <h2>{{ disease.name }}</h2>
+
+
+                        <h3>Symptoms</h3>
+
+                        <p>
+                            {{ disease.symptoms }}
+                        </p>
+
+
+                        <h3>Prevention Advice</h3>
+
+                        <p>
+                            {{ disease.advice }}
+                        </p>
+
+
+                        <!-- AI Confidence Indicator -->
+
+                        {% if confidence is not none %}
+
+                            <div class="confidence-section">
+
+                                <p>
+                                    <strong>AI Confidence:</strong>
+                                    {{ "%.2f"|format(confidence) }}%
+                                </p>
+
+                                <div class="confidence-bar">
+
+                                    <div class="confidence-fill {% if confidence >= 70 %}high{% elif confidence >= 50 %}medium{% else %}low{% endif %}"
+                                         style="width: {{ confidence }}%;">
+                                    </div>
+
+                                </div>
+
+                                <small>
+                                    {% if confidence >= 70 %}
+                                        High confidence
+                                    {% elif confidence >= 50 %}
+                                        Moderate confidence
+                                    {% else %}
+                                        Low confidence
+                                    {% endif %}
+                                </small>
+
+                            </div>
+
+                        {% endif %}
+
+
+                        <!-- Download PDF Report -->
+
+                        {% if report_url %}
+
+                            <div>
+
+                                <a
+                                    href="{{ report_url }}"
+                                    class="pdf-button"
+                                >
+                                    📄 Download PDF Report
+                                </a>
+
+                            </div>
+
+                        {% endif %}
+
+                    {% endif %}
+
+                </div>
+
+            {% endif %}
+
+        </div>
+
+
+        <!-- Detection History -->
+
+        <div class="section">
+
+            <h2>Detection History</h2>
+
+            {% if history %}
+
+                {% for item in history %}
+
+                    <div class="history-item">
+
+                        <strong>Image:</strong>
+                        {{ item['image_filename'] }}
+
+                        <br>
+
+                        <strong>Date:</strong>
+                        {{ item['detected_at'] }}
+
+                        <br>
+
+                        <strong>Result:</strong>
+
+                        {% if item['disease_name'] == 'Uncertain prediction' %}
+
+                            Unable to Identify Disease Confidently
+
+                        {% elif item['disease_name'] %}
+
+                            {{ item['disease_name'].replace('___', ' - ').replace('_', ' ') }}
+
+                        {% else %}
+
+                            Pending Prediction
+
+                        {% endif %}
+
+
+                        {% if item['confidence'] is not none %}
+
+                            <br>
+
+                            <strong>Confidence:</strong>
+                            {{ "%.2f"|format(item['confidence']) }}%
+
+                            <div class="history-confidence">
+
+                                <div class="history-confidence-fill"
+                                     style="width: {{ item['confidence'] }}%; background-color: {% if item['confidence'] >= 70 %}#28a745{% elif item['confidence'] >= 50 %}#f39c12{% else %}#dc3545{% endif %};">
+                                </div>
+
+                            </div>
+
+                        {% endif %}
+
+
+                        <img
+                            src="{{ url_for('static', filename='uploads/' + item['image_filename']) }}"
+                            alt="Plant leaf image"
+                        >
+
+                    </div>
+
+                {% endfor %}
+
+            {% else %}
+
+                <p class="empty">
+                    No detection history available yet.
+                </p>
+
+            {% endif %}
+
+        </div>
+
+    </div>
+
+
+    <!-- Footer -->
+
+    <footer>
+        <p>CropCare | AI-Based Plant Disease Detection System</p>
+    </footer>
+
+</body>
+
+</html>
+
+
+
+
+
+
+
+
+
+
