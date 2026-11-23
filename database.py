@@ -1,7 +1,10 @@
 
 import sqlite3
+import os
 
-DATABASE_NAME = "cropcare.db"
+# Database file path
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATABASE_NAME = os.path.join(BASE_DIR, "cropcare.db")
 
 
 def get_connection():
@@ -11,7 +14,6 @@ def get_connection():
 
 
 def create_tables():
-
     connection = get_connection()
     cursor = connection.cursor()
 
@@ -42,10 +44,11 @@ def create_tables():
     connection.commit()
     connection.close()
 
-    print("CropCare database created successfully!")
+    print("CropCare database initialized successfully!")
     print("Users table created!")
     print("Detection history table created!")
 
 
 if __name__ == "__main__":
     create_tables()
+

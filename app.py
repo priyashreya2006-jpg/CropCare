@@ -10,14 +10,16 @@ from PIL import Image
 from predict import predict_disease
 from disease_info import DISEASE_INFO
 from report import generate_report
+from database import create_tables, get_connection
 
 
 app = Flask(__name__)
 
 # Application settings
-UPLOAD_FOLDER = "static/uploads"
-REPORT_FOLDER = "static/reports"
-DATABASE_NAME = "cropcare.db"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+UPLOAD_FOLDER = os.path.join(BASE_DIR, "static", "uploads")
+REPORT_FOLDER = os.path.join(BASE_DIR, "static", "reports")
 
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["REPORT_FOLDER"] = REPORT_FOLDER
@@ -30,10 +32,12 @@ CONFIDENCE_THRESHOLD = 50.0
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(REPORT_FOLDER, exist_ok=True)
 
+# Initialize database tables automatically on startup
+create_tables()
+
 
 # Check allowed image extensions
 def allowed_file(filename):
-
     return (
         "." in filename
         and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -43,87 +47,96 @@ def allowed_file(filename):
 # Save uploaded image in database
 def save_upload_history(filename):
 
-    connection = sqlite3.connect(DATABASE_NAME)
+    connection = get_connection()
 
-    connection.execute("""
-        INSERT INTO detection_history
-        (user_id, image_filename, disease_name, confidence)
-        VALUES (?, ?, ?, ?)
-    """, (None, filename, None, None))
+    try:
+        connection.execute("""
+            INSERT INTO detection_history
+            (user_id, image_filename, disease_name, confidence)
+            VALUES (?, ?, ?, ?)
+        """, (None, filename, None, None))
 
-    connection.commit()
-    connection.close()
+        connection.commit()
+
+    finally:
+        connection.close()
 
 
 # Update AI prediction in database
 def update_prediction_history(filename, disease_name, confidence):
 
-    connection = sqlite3.connect(DATABASE_NAME)
+    connection = get_connection()
 
-    connection.execute("""
-        UPDATE detection_history
-        SET disease_name = ?, confidence = ?
-        WHERE image_filename = ?
-    """, (disease_name, confidence, filename))
+    try:
+        connection.execute("""
+            UPDATE detection_history
+            SET disease_name = ?, confidence = ?
+            WHERE image_filename = ?
+        """, (disease_name, confidence, filename))
 
-    connection.commit()
-    connection.close()
+        connection.commit()
+
+    finally:
+        connection.close()
 
 
 # Get detection history
 def get_history():
 
-    connection = sqlite3.connect(DATABASE_NAME)
-    connection.row_factory = sqlite3.Row
+    connection = get_connection()
 
-    history = connection.execute("""
-        SELECT *
-        FROM detection_history
-        ORDER BY detected_at DESC
-    """).fetchall()
+    try:
+        history = connection.execute("""
+            SELECT *
+            FROM detection_history
+            ORDER BY detected_at DESC
+        """).fetchall()
 
-    connection.close()
+        return history
 
-    return history
+    finally:
+        connection.close()
 
 
 # Calculate dashboard statistics
 def get_dashboard_stats():
 
-    connection = sqlite3.connect(DATABASE_NAME)
+    connection = get_connection()
 
-    total_uploads = connection.execute("""
-        SELECT COUNT(*)
-        FROM detection_history
-    """).fetchone()[0]
+    try:
+        total_uploads = connection.execute("""
+            SELECT COUNT(*)
+            FROM detection_history
+        """).fetchone()[0]
 
-    diseases_detected = connection.execute("""
-        SELECT COUNT(*)
-        FROM detection_history
-        WHERE disease_name IS NOT NULL
-        AND disease_name != 'Uncertain prediction'
-    """).fetchone()[0]
+        diseases_detected = connection.execute("""
+            SELECT COUNT(*)
+            FROM detection_history
+            WHERE disease_name IS NOT NULL
+            AND disease_name != 'Uncertain prediction'
+        """).fetchone()[0]
 
-    pending_predictions = connection.execute("""
-        SELECT COUNT(*)
-        FROM detection_history
-        WHERE disease_name IS NULL
-    """).fetchone()[0]
+        pending_predictions = connection.execute("""
+            SELECT COUNT(*)
+            FROM detection_history
+            WHERE disease_name IS NULL
+        """).fetchone()[0]
 
-    uncertain_predictions = connection.execute("""
-        SELECT COUNT(*)
-        FROM detection_history
-        WHERE disease_name = 'Uncertain prediction'
-    """).fetchone()[0]
+        uncertain_predictions = connection.execute("""
+            SELECT COUNT(*)
+            FROM detection_history
+            WHERE disease_name = 'Uncertain prediction'
+        """).fetchone()[0]
 
-    connection.close()
+        return {
+            "total_uploads": total_uploads,
+            "diseases_detected": diseases_detected,
+            "pending_predictions": pending_predictions,
+            "uncertain_predictions": uncertain_predictions
+        }
 
-    return {
-        "total_uploads": total_uploads,
-        "diseases_detected": diseases_detected,
-        "pending_predictions": pending_predictions,
-        "uncertain_predictions": uncertain_predictions
-    }
+    finally:
+        connection.close()
 
 
 # Home page
@@ -141,11 +154,9 @@ def home():
         image = request.files.get("leaf_image")
 
         if not image or image.filename == "":
-
             error = "Please select a plant leaf image."
 
         elif not allowed_file(image.filename):
-
             error = "Please upload JPG, JPEG or PNG images."
 
         else:
@@ -173,7 +184,9 @@ def home():
                 # Save upload history
                 save_upload_history(unique_filename)
 
-                uploaded_image = "/" + image_path.replace("\\", "/")
+                uploaded_image = (
+                    "/static/uploads/" + unique_filename
+                )
 
                 # Run AI prediction
                 predicted_label, confidence = predict_disease(image_path)
@@ -181,13 +194,16 @@ def home():
                 # Check prediction confidence
                 if confidence >= CONFIDENCE_THRESHOLD:
 
-                    # Get disease information
                     disease = DISEASE_INFO.get(
                         predicted_label,
                         {
                             "name": predicted_label.replace("_", " "),
-                            "symptoms": "Disease information is not available.",
-                            "advice": "Consult an agricultural expert for guidance."
+                            "symptoms": (
+                                "Disease information is not available."
+                            ),
+                            "advice": (
+                                "Consult an agricultural expert for guidance."
+                            )
                         }
                     )
 
@@ -247,10 +263,8 @@ def home():
                 uploaded_image = None
                 report_url = None
 
-
     # Get latest history and dashboard statistics
     history = get_history()
-
     stats = get_dashboard_stats()
 
     return render_template(
@@ -276,10 +290,10 @@ def download_report(filename):
     )
 
 
-# Run application
+# Run application locally
 if __name__ == "__main__":
-
     app.run(debug=True)
+
 
 
 
